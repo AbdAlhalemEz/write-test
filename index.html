@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق سور جزء عم للأطفال</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 30px;
+            background-color: #f0f8ff;
+        }
+        .balloon {
+            display: inline-block;
+            width: 100px;
+            height: 100px;
+            line-height: 100px;
+            border-radius: 50%;
+            background-color: #ffccff;
+            margin: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        .balloon:hover {
+            background-color: #ff99ff;
+        }
+        .word-container {
+            margin-top: 30px;
+            font-size: 30px;
+        }
+        .letter-box {
+            width: 30px;
+            height: 40px;
+            text-align: center;
+            font-size: 24px;
+            margin: 5px;
+        }
+        .letter-correct {
+            color: #000;
+        }
+        .faded {
+            color: #ccc;
+            margin-left: 5px;
+            margin-right: 5px;
+        }
+        .revealed {
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <h2 id="header">اختر سورة من جزء عم</h2>
+    <div id="balloon-container"></div>
+    <div class="word-container" id="word-container"></div>
+
+    <script>
+        let surahs = {};
+        const juzAmmaRange = {start: 78, end: 114};
+        const surahNames = [
+            "النبأ", "النازعات", "عبس", "التكوير", "الانفطار", "المطففين", "الانشقاق", "البروج", "الطارق", "الأعلى", 
+            "الغاشية", "الفجر", "البلد", "الشمس", "الليل", "الضحى", "الشرح", "التين", "العلق", "القدر", 
+            "البينة", "الزلزلة", "العاديات", "القارعة", "التكاثر", "العصر", "الهمزة", "الفيل", "قريش", "الماعون", 
+            "الكوثر", "الكافرون", "النصر", "المسد", "الإخلاص", "الفلق", "الناس"
+        ];
+
+        fetch('quran.json')
+        .then(response => response.json())
+        .then(data => {
+            surahs = data;
+            createBalloons();
+        });
+
+        function createBalloons() {
+            const container = document.getElementById('balloon-container');
+            surahNames.forEach((name, index) => {
+                const balloon = document.createElement('div');
+                balloon.className = 'balloon';
+                balloon.innerText = `سورة ${name}`;
+                balloon.onclick = () => startSurah(index + juzAmmaRange.start);
+                container.appendChild(balloon);
+            });
+        }
+
+        let currentSurahWords = [];
+        let currentWordIndex = 0;
+        let solvedWords = [];
+
+        function removeDiacritics(text) {
+            return text
+                .normalize("NFD")
+                .replace(/[ً-ٰٟ‌ـۖ-ۭؐ-ؚ۟-۠]/g, '')
+                .replace(/ٱ/g, 'ا');
+        }
+
+        function startSurah(surahNumber) {
+            document.getElementById('balloon-container').style.display = 'none';
+            document.getElementById('header').innerText = `سورة ${surahNames[surahNumber - juzAmmaRange.start]}`;
+
+            const basmala = { number: 0, text: 'بسم الله الرحمن الرحيم' };
+            const verses = [basmala, ...surahs[surahNumber]];
+
+            currentSurahWords = [];
+            verses.forEach((verse, i) => {
+                const words = removeDiacritics(verse.text).split(' ');
+                words.forEach(word => {
+                    currentSurahWords.push({ word, verse: i });
+                });
+            });
+
+            currentWordIndex = 0;
+            solvedWords = [];
+            showCurrentWord();
+        }
+
+        function showCurrentWord() {
+            const wordContainer = document.getElementById('word-container');
+            wordContainer.innerHTML = '';
+
+            const grouped = {};
+            solvedWords.forEach(obj => {
+                if (!grouped[obj.verse]) grouped[obj.verse] = [];
+                grouped[obj.verse].push(obj.word);
+            });
+
+            for (const [verseNum, words] of Object.entries(grouped)) {
+                const verseBlock = document.createElement('div');
+                verseBlock.classList.add('letter-correct');
+                if (verseNum == 0) {
+                    verseBlock.innerHTML = words.join(' ');
+                } else {
+                    verseBlock.innerHTML = words.join(' ') + ` <span style="color:gray">(${verseNum})</span>`;
+                }
+                wordContainer.appendChild(verseBlock);
+            }
+
+            const wordObj = currentSurahWords[currentWordIndex];
+            const word = wordObj.word;
+            const letters = word.split('');
+
+            const fadedContainer = document.createElement('div');
+            fadedContainer.style.marginBottom = '10px';
+            letters.forEach(letter => {
+                const span = document.createElement('span');
+                span.innerText = letter;
+                span.className = 'faded';
+                fadedContainer.appendChild(span);
+            });
+            wordContainer.appendChild(fadedContainer);
+
+            const inputBoxes = [];
+            letters.forEach((letter, index) => {
+                const input = document.createElement('input');
+                input.classList.add('letter-box');
+                input.maxLength = 1;
+
+                input.addEventListener('input', () => {
+                    if (input.value === letter) {
+                        input.disabled = true;
+                        input.style.backgroundColor = '#cfc';
+                        fadedContainer.children[index].classList.remove('faded');
+                        fadedContainer.children[index].classList.add('revealed');
+                        if (index + 1 < inputBoxes.length) {
+                            inputBoxes[index + 1].focus();
+                        } else {
+                            solvedWords.push({ word, verse: wordObj.verse });
+                            currentWordIndex++;
+                            setTimeout(() => {
+                                if (currentWordIndex < currentSurahWords.length) {
+                                    showCurrentWord();
+                                } else {
+                                    alert('أحسنت! أنهيت السورة.');
+                                    location.reload();
+                                }
+                            }, 400);
+                        }
+                    } else {
+                        alert('الحرف الصحيح هو: ' + letter);
+                        input.value = '';
+                    }
+                });
+
+                inputBoxes.push(input);
+                wordContainer.appendChild(input);
+            });
+
+            inputBoxes[0].focus();
+        }
+    </script>
+</body>
+</html>
