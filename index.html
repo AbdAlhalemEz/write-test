@@ -2,14 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#ffccff">
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./service-worker.js')
-      .then(() => console.log("Service Worker Registered"));
-  }
-</script>
-
+    <meta name="theme-color" content="#ffccff">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تطبيق سور جزء عم للأطفال</title>
@@ -32,199 +25,150 @@
         <div id="inputArea"></div>
     </div>
     <audio id="audioPlayer" src="" style="display:none"></audio>
-     <script>
-        let surahs = {};
-        const juzAmmaRange = {start: 78, end: 114};
-        const surahNames = [
-            "النبأ", "النازعات", "عبس", "التكوير", "الانفطار", "المطففين", "الانشقاق", "البروج", "الطارق", "الأعلى", 
-            "الغاشية", "الفجر", "البلد", "الشمس", "الليل", "الضحى", "الشرح", "التين", "العلق", "القدر", 
-            "البينة", "الزلزلة", "العاديات", "القارعة", "التكاثر", "العصر", "الهمزة", "الفيل", "قريش", "الماعون", 
-            "الكوثر", "الكافرون", "النصر", "المسد", "الإخلاص", "الفلق", "الناس"
-        ];
+    <script>
+    let surahs = {};
+    const juzAmmaRange = {start: 78, end: 114};
+    const surahNames = [
+        "النبأ", "النازعات", "عبس", "التكوير", "الانفطار", "المطففين", "الانشقاق", "البروج", "الطارق", "الأعلى", 
+        "الغاشية", "الفجر", "البلد", "الشمس", "الليل", "الضحى", "الشرح", "التين", "العلق", "القدر", 
+        "البينة", "الزلزلة", "العاديات", "القارعة", "التكاثر", "العصر", "الهمزة", "الفيل", "قريش", "الماعون", 
+        "الكوثر", "الكافرون", "النصر", "المسد", "الإخلاص", "الفلق", "الناس"
+    ];
+    let currentSurahWords = [];
+    let currentWordIndex = 0;
+    let solvedWords = [];
+    function removeDiacritics(text) {
+        return text
+            .normalize("NFD")
+            .replace(/[ً-ٰٟ‌ـۖ-ۭؐ-ؚ۟-۠]/g, '')
+            .replace(/ٱ/g, 'ا');
+    }
+    fetch('quran.json')
+    .then(response => response.json())
+    .then(data => {
+        surahs = data;
+        createBalloons();
+    });
+    function createBalloons() {
+        const container = document.getElementById('balloon-container');
+        surahNames.forEach((name, index) => {
+            const balloon = document.createElement('div');
+            balloon.className = 'balloon';
+            balloon.innerText = `سورة ${name}`;
+            balloon.onclick = () => startSurah(index + juzAmmaRange.start);
+            container.appendChild(balloon);
+        });
+    }
+    function startSurah(surahNumber) {
+        document.getElementById('balloon-container').style.display = 'none';
+        document.getElementById('header').innerText = `سورة ${surahNames[surahNumber - juzAmmaRange.start]}`;
+        currentSurahWords = [];
+        surahs[surahNumber].forEach((verse, i) => {
+            const words = removeDiacritics(verse.text).split(' ');
+            words.forEach(word => {
+                currentSurahWords.push({ word, verse: i + 1 });
+            });
+        });
+        currentWordIndex = 0;
+        solvedWords = [];
+        showCurrentWord();
+    }
+    function showCompletedVerses(livePartial = "") {
+        const completedDiv = document.getElementById('completedVerses');
+        completedDiv.innerHTML = '';
+        const basmalaLine = document.createElement('div');
+        basmalaLine.innerText = 'بسم الله الرحمن الرحيم';
+        basmalaLine.classList.add('letter-correct');
+        completedDiv.appendChild(basmalaLine);
 
-        function playSound(path) {
-            let audio = document.getElementById('audioPlayer');
-            if (!audio) {
-                audio = document.createElement('audio');
-                audio.id = 'audioPlayer';
-                audio.style.display = 'none';
-                document.body.appendChild(audio);
-            }
-            audio.pause();
-            audio.currentTime = 0;
-            audio.src = path;
-            audio.play();
-        }
-
-        function playLetterSound(letter) {
-            const letterMap = {
-                'ا': '001-alif', 'أ': '001-alif', 'إ': '001-alif', 'آ': '001-alif',
-                'ب': '002-baa', 'ت': '003-taa', 'ث': '004-tha', 'ج': '005-jeem', 'ح': '006-haa',
-                'خ': '007-khaa', 'د': '008-dal', 'ذ': '009-dhal', 'ر': '010-raa', 'ز': '011-jaa',
-                'س': '012-seen', 'ش': '013-sheen', 'ص': '014-saad', 'ض': '015-dhaad', 'ط': '016-toa',
-                'ظ': '017-dhaa', 'ع': '018-ain', 'غ': '019-ghain', 'ف': '020-faa', 'ق': '021-qaf',
-                'ك': '022-kaaf', 'ل': '023-laam', 'م': '024-meem', 'ن': '025-noon', 'ه': '027-ha',
-                'ة': '027-ha', 'و': '026-waw', 'ي': '029-yaa', 'ى': '029-yaa', 'ء': '028-hamza',
-                'ئ': '028-hamza', 'ؤ': '028-hamza'
-            };
-            const code = letterMap[letter] || '';
-            if (code) {
-                playSound(`Letters/${code}.mp3`);
-            }
-        }
-
-        fetch('quran.json')
-        .then(response => response.json())
-        .then(data => {
-            surahs = data;
-            createBalloons();
+        // Build words for each verse
+        let map = {};
+        solvedWords.forEach(obj => {
+            if (!map[obj.verse]) map[obj.verse] = [];
+            map[obj.verse].push(obj.word);
         });
 
-        function createBalloons() {
-            const container = document.getElementById('balloon-container');
-            surahNames.forEach((name, index) => {
-                const balloon = document.createElement('div');
-                balloon.className = 'balloon';
-                balloon.innerText = `سورة ${name}`;
-                balloon.onclick = () => startSurah(index + juzAmmaRange.start);
-                container.appendChild(balloon);
-            });
+        // Add current live (incomplete) word, if present, to current verse
+        if (currentWordIndex < currentSurahWords.length && livePartial.length > 0) {
+            let verse = currentSurahWords[currentWordIndex].verse;
+            if (!map[verse]) map[verse] = [];
+            map[verse].push(livePartial);
         }
 
-        let currentSurahWords = [];
-        let currentWordIndex = 0;
-        let solvedWords = [];
-        let completedVersesArray = [];
-
-        function removeDiacritics(text) {
-            return text
-                .normalize("NFD")
-                .replace(/[ً-ٰٟ‌ـۖ-ۭؐ-ؚ۟-۠]/g, '')
-                .replace(/ٱ/g, 'ا');
+        // Display all verses and their words, add verse number if fully completed
+        let verses = Object.keys(map).sort((a,b)=>+a-+b);
+        for (let i = 0; i < verses.length; i++) {
+            let verseNum = parseInt(verses[i]);
+            let words = map[verseNum];
+            let totalWords = currentSurahWords.filter(w => w.verse === verseNum).length;
+            let div = document.createElement('div');
+            div.classList.add('letter-correct');
+            div.innerHTML = words.join(' ') + (words.length === totalWords && (currentWordIndex >= currentSurahWords.length || verseNum !== currentSurahWords[currentWordIndex]?.verse) ? ` <span style="color:gray">(${verseNum})</span>` : '');
+            completedDiv.appendChild(div);
         }
-
-        function startSurah(surahNumber) {
-            document.getElementById('balloon-container').style.display = 'none';
-            document.getElementById('header').innerText = `سورة ${surahNames[surahNumber - juzAmmaRange.start]}`;
-
-            const completed = document.getElementById('completedVerses');
-            completed.innerHTML = '';
-            const basmalaLine = document.createElement('div');
-            basmalaLine.innerText = 'بسم الله الرحمن الرحيم';
-            basmalaLine.classList.add('letter-correct');
-            completed.appendChild(basmalaLine);
-
-            currentSurahWords = [];
-            surahs[surahNumber].forEach((verse, i) => {
-                const words = removeDiacritics(verse.text).split(' ');
-                words.forEach(word => {
-                    currentSurahWords.push({ word, verse: i + 1 });
-                });
-            });
-
-            currentWordIndex = 0;
-            solvedWords = [];
-            completedVersesArray = [];
-            showCurrentWord();
+    }
+    function showCurrentWord() {
+        const inputArea = document.getElementById('inputArea');
+        inputArea.innerHTML = '';
+        if (currentWordIndex >= currentSurahWords.length) {
+            showCompletedVerses("");
+            return;
         }
+        const wordObj = currentSurahWords[currentWordIndex];
+        const word = wordObj.word;
+        const letters = word.split('');
+        const fadedContainer = document.createElement('div');
+        fadedContainer.style.marginBottom = '10px';
+        letters.forEach(letter => {
+            const span = document.createElement('span');
+            span.innerText = letter;
+            span.className = 'faded';
+            fadedContainer.appendChild(span);
+        });
+        inputArea.appendChild(fadedContainer);
 
-        function showCompletedVerses() {
-            const completedDiv = document.getElementById('completedVerses');
-            completedDiv.innerHTML = '';
-            const basmalaLine = document.createElement('div');
-            basmalaLine.innerText = 'بسم الله الرحمن الرحيم';
-            basmalaLine.classList.add('letter-correct');
-            completedDiv.appendChild(basmalaLine);
+        const inputBoxes = [];
+        let livePartial = "";
+        letters.forEach((letter, index) => {
+            const input = document.createElement('input');
+            input.classList.add('letter-box');
+            input.maxLength = 1;
 
-            completedVersesArray.forEach(({words, verseNum}) => {
-                const verseBlock = document.createElement('div');
-                verseBlock.classList.add('letter-correct');
-                verseBlock.innerHTML = words.join(' ') + ` <span style="color:gray">(${verseNum})</span>`;
-                completedDiv.appendChild(verseBlock);
-            });
-        }
-
-        function showCurrentWord() {
-            const inputArea = document.getElementById('inputArea');
-            inputArea.innerHTML = '';
-
-            const grouped = {};
-            solvedWords.forEach(obj => {
-                if (!grouped[obj.verse]) grouped[obj.verse] = [];
-                grouped[obj.verse].push(obj.word);
-            });
-
-            completedVersesArray = [];
-            for (const verseNum in grouped) {
-                const verseNumInt = parseInt(verseNum);
-                const totalWords = currentSurahWords.filter(w => w.verse === verseNumInt).length;
-                if (grouped[verseNum].length === totalWords) {
-                    completedVersesArray.push({words: grouped[verseNum], verseNum: verseNum});
-                }
-            }
-            showCompletedVerses();
-
-            const wordObj = currentSurahWords[currentWordIndex];
-            const word = wordObj.word;
-            const letters = word.split('');
-
-            const fadedContainer = document.createElement('div');
-            fadedContainer.style.marginBottom = '10px';
-            letters.forEach(letter => {
-                const span = document.createElement('span');
-                span.innerText = letter;
-                span.className = 'faded';
-                fadedContainer.appendChild(span);
-            });
-            inputArea.appendChild(fadedContainer);
-
-            const inputBoxes = [];
-            letters.forEach((letter, index) => {
-                const input = document.createElement('input');
-                input.classList.add('letter-box');
-                input.maxLength = 1;
-
-                input.addEventListener('input', () => {
-                    if (input.value === letter) {
-                        playLetterSound(letter);
-                        input.disabled = true;
-                        input.style.backgroundColor = '#cfc';
-                        fadedContainer.children[index].classList.remove('faded');
-                        fadedContainer.children[index].classList.add('revealed');
-                        if (index + 1 < inputBoxes.length) {
-                            inputBoxes[index + 1].focus();
-                        } else {
-                            const verseId = wordObj.verse;
-                            solvedWords.push({ word, verse: verseId });
-                            currentWordIndex++;
-                            setTimeout(() => {
-                                const nextWord = currentSurahWords[currentWordIndex];
-                                if (!nextWord || nextWord.verse !== verseId) {
-                                    showCompletedVerses();
-                                }
-                                if (currentWordIndex < currentSurahWords.length) {
-                                    showCurrentWord();
-                                } else {
-                                    playSound('sounds/correct.mp3');
-                                    alert('أحسنت! أنهيت السورة.');
-                                    location.reload();
-                                }
-                            }, 800);
-                        }
-                    } else {
-                        playSound('sounds/wrong.mp3');
-                        alert('الحرف الصحيح هو: ' + letter);
-                        input.value = '';
+            input.addEventListener('input', () => {
+                if (input.value === letter) {
+                    input.disabled = true;
+                    input.style.backgroundColor = '#cfc';
+                    fadedContainer.children[index].classList.remove('faded');
+                    fadedContainer.children[index].classList.add('revealed');
+                    // Build livePartial from all input boxes
+                    livePartial = "";
+                    for (let j = 0; j < inputBoxes.length; j++) {
+                        livePartial += inputBoxes[j].value;
                     }
-                });
+                    showCompletedVerses(livePartial);
 
-                inputBoxes.push(input);
-                inputArea.appendChild(input);
+                    if (index + 1 < inputBoxes.length) {
+                        inputBoxes[index + 1].focus();
+                    } else {
+                        // Word complete, add to solvedWords
+                        const verseId = wordObj.verse;
+                        solvedWords.push({ word, verse: verseId });
+                        currentWordIndex++;
+                        setTimeout(() => {
+                            showCurrentWord();
+                        }, 400);
+                    }
+                } else if (input.value !== "") {
+                    input.value = '';
+                }
             });
-
-            inputBoxes[0].focus();
-        }
+            inputBoxes.push(input);
+            inputArea.appendChild(input);
+        });
+        // On initial render, also show (empty) livePartial so previous words display
+        showCompletedVerses("");
+        inputBoxes[0].focus();
+    }
     </script>
-
 </body>
 </html>
