@@ -52,7 +52,10 @@
 <body>
     <h2 id="header">اختر سورة من جزء عم</h2>
     <div id="balloon-container"></div>
-    <div class="word-container" id="word-container"></div>
+    <div class="word-container" id="word-container">
+        <div id="completedVerses"></div>
+        <div id="inputArea"></div>
+    </div>
 
     <script>
         let surahs = {};
@@ -85,6 +88,7 @@
         let currentSurahWords = [];
         let currentWordIndex = 0;
         let solvedWords = [];
+        let completedVersesArray = []; // [{words: [...], verseNum: N}]
 
         function removeDiacritics(text) {
             return text
@@ -97,42 +101,65 @@
             document.getElementById('balloon-container').style.display = 'none';
             document.getElementById('header').innerText = `سورة ${surahNames[surahNumber - juzAmmaRange.start]}`;
 
-            const basmala = { number: 0, text: 'بسم الله الرحمن الرحيم' };
-            const verses = [basmala, ...surahs[surahNumber]];
+            const completed = document.getElementById('completedVerses');
+            completed.innerHTML = '';
+            const basmalaLine = document.createElement('div');
+            basmalaLine.innerText = 'بسم الله الرحمن الرحيم';
+            basmalaLine.classList.add('letter-correct');
+            completed.appendChild(basmalaLine);
 
             currentSurahWords = [];
-            verses.forEach((verse, i) => {
+            surahs[surahNumber].forEach((verse, i) => {
                 const words = removeDiacritics(verse.text).split(' ');
                 words.forEach(word => {
-                    currentSurahWords.push({ word, verse: i });
+                    currentSurahWords.push({ word, verse: i + 1 });
                 });
             });
 
             currentWordIndex = 0;
             solvedWords = [];
+            completedVersesArray = [];
             showCurrentWord();
         }
 
-        function showCurrentWord() {
-            const wordContainer = document.getElementById('word-container');
-            wordContainer.innerHTML = '';
+        function showCompletedVerses() {
+            const completedDiv = document.getElementById('completedVerses');
+            completedDiv.innerHTML = '';
+            const basmalaLine = document.createElement('div');
+            basmalaLine.innerText = 'بسم الله الرحمن الرحيم';
+            basmalaLine.classList.add('letter-correct');
+            completedDiv.appendChild(basmalaLine);
 
+            completedVersesArray.forEach(({words, verseNum}) => {
+                const verseBlock = document.createElement('div');
+                verseBlock.classList.add('letter-correct');
+                verseBlock.innerHTML = words.join(' ') + ` <span style="color:gray">(${verseNum})</span>`;
+                completedDiv.appendChild(verseBlock);
+            });
+        }
+
+        function showCurrentWord() {
+            const inputArea = document.getElementById('inputArea');
+            inputArea.innerHTML = '';
+
+            // Get all solved words grouped by verse
             const grouped = {};
             solvedWords.forEach(obj => {
                 if (!grouped[obj.verse]) grouped[obj.verse] = [];
                 grouped[obj.verse].push(obj.word);
             });
 
-            for (const [verseNum, words] of Object.entries(grouped)) {
-                const verseBlock = document.createElement('div');
-                verseBlock.classList.add('letter-correct');
-                if (verseNum == 0) {
-                    verseBlock.innerHTML = words.join(' ');
-                } else {
-                    verseBlock.innerHTML = words.join(' ') + ` <span style="color:gray">(${verseNum})</span>`;
+            // Only show completed verses (where all words in a verse are solved)
+            completedVersesArray = [];
+            for (const verseNum in grouped) {
+                const verseNumInt = parseInt(verseNum);
+                // Find the number of words in this verse
+                const totalWords = currentSurahWords.filter(w => w.verse === verseNumInt).length;
+                if (grouped[verseNum].length === totalWords) {
+                    completedVersesArray.push({words: grouped[verseNum], verseNum: verseNum});
                 }
-                wordContainer.appendChild(verseBlock);
             }
+            showCompletedVerses();
 
             const wordObj = currentSurahWords[currentWordIndex];
             const word = wordObj.word;
@@ -146,7 +173,7 @@
                 span.className = 'faded';
                 fadedContainer.appendChild(span);
             });
-            wordContainer.appendChild(fadedContainer);
+            inputArea.appendChild(fadedContainer);
 
             const inputBoxes = [];
             letters.forEach((letter, index) => {
@@ -163,16 +190,22 @@
                         if (index + 1 < inputBoxes.length) {
                             inputBoxes[index + 1].focus();
                         } else {
-                            solvedWords.push({ word, verse: wordObj.verse });
+                            const verseId = wordObj.verse;
+                            solvedWords.push({ word, verse: verseId });
                             currentWordIndex++;
                             setTimeout(() => {
+                                // Only update completedVersesArray after LAST word of the verse
+                                const nextWord = currentSurahWords[currentWordIndex];
+                                if (!nextWord || nextWord.verse !== verseId) {
+                                    showCompletedVerses();
+                                }
                                 if (currentWordIndex < currentSurahWords.length) {
                                     showCurrentWord();
                                 } else {
                                     alert('أحسنت! أنهيت السورة.');
                                     location.reload();
                                 }
-                            }, 400);
+                            }, 800);
                         }
                     } else {
                         alert('الحرف الصحيح هو: ' + letter);
@@ -181,7 +214,7 @@
                 });
 
                 inputBoxes.push(input);
-                wordContainer.appendChild(input);
+                inputArea.appendChild(input);
             });
 
             inputBoxes[0].focus();
