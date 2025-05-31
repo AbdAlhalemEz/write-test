@@ -5,48 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تطبيق سور جزء عم للأطفال</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 30px;
-            background-color: #f0f8ff;
-        }
-        .balloon {
-            display: inline-block;
-            width: 100px;
-            height: 100px;
-            line-height: 100px;
-            border-radius: 50%;
-            background-color: #ffccff;
-            margin: 10px;
-            cursor: pointer;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        }
-        .balloon:hover {
-            background-color: #ff99ff;
-        }
-        .word-container {
-            margin-top: 30px;
-            font-size: 30px;
-        }
-        .letter-box {
-            width: 30px;
-            height: 40px;
-            text-align: center;
-            font-size: 24px;
-            margin: 5px;
-        }
-        .letter-correct {
-            color: #000;
-        }
-        .faded {
-            color: #ccc;
-            margin-left: 5px;
-            margin-right: 5px;
-        }
-        .revealed {
-            color: #000;
-        }
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 30px; background-color: #f0f8ff;}
+        .balloon { display: inline-block; width: 100px; height: 100px; line-height: 100px; border-radius: 50%; background-color: #ffccff; margin: 10px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3);}
+        .balloon:hover { background-color: #ff99ff;}
+        .word-container { margin-top: 30px; font-size: 30px;}
+        .letter-box { width: 30px; height: 40px; text-align: center; font-size: 24px; margin: 5px;}
+        .letter-correct { color: #000;}
+        .faded { color: #ccc; margin-left: 5px; margin-right: 5px;}
+        .revealed { color: #000;}
     </style>
 </head>
 <body>
@@ -56,8 +22,8 @@
         <div id="completedVerses"></div>
         <div id="inputArea"></div>
     </div>
-
-    <script>
+    <audio id="audioPlayer" src="" style="display:none"></audio>
+     <script>
         let surahs = {};
         const juzAmmaRange = {start: 78, end: 114};
         const surahNames = [
@@ -66,6 +32,37 @@
             "البينة", "الزلزلة", "العاديات", "القارعة", "التكاثر", "العصر", "الهمزة", "الفيل", "قريش", "الماعون", 
             "الكوثر", "الكافرون", "النصر", "المسد", "الإخلاص", "الفلق", "الناس"
         ];
+
+        function playSound(path) {
+            let audio = document.getElementById('audioPlayer');
+            if (!audio) {
+                audio = document.createElement('audio');
+                audio.id = 'audioPlayer';
+                audio.style.display = 'none';
+                document.body.appendChild(audio);
+            }
+            audio.pause();
+            audio.currentTime = 0;
+            audio.src = path;
+            audio.play();
+        }
+
+        function playLetterSound(letter) {
+            const letterMap = {
+                'ا': '001-alif', 'أ': '001-alif', 'إ': '001-alif', 'آ': '001-alif',
+                'ب': '002-baa', 'ت': '003-taa', 'ث': '004-tha', 'ج': '005-jeem', 'ح': '006-haa',
+                'خ': '007-khaa', 'د': '008-dal', 'ذ': '009-dhal', 'ر': '010-raa', 'ز': '011-jaa',
+                'س': '012-seen', 'ش': '013-sheen', 'ص': '014-saad', 'ض': '015-dhaad', 'ط': '016-toa',
+                'ظ': '017-dhaa', 'ع': '018-ain', 'غ': '019-ghain', 'ف': '020-faa', 'ق': '021-qaf',
+                'ك': '022-kaaf', 'ل': '023-laam', 'م': '024-meem', 'ن': '025-noon', 'ه': '027-ha',
+                'ة': '027-ha', 'و': '026-waw', 'ي': '029-yaa', 'ى': '029-yaa', 'ء': '028-hamza',
+                'ئ': '028-hamza', 'ؤ': '028-hamza'
+            };
+            const code = letterMap[letter] || '';
+            if (code) {
+                playSound(`Letters/${code}.mp3`);
+            }
+        }
 
         fetch('quran.json')
         .then(response => response.json())
@@ -88,7 +85,7 @@
         let currentSurahWords = [];
         let currentWordIndex = 0;
         let solvedWords = [];
-        let completedVersesArray = []; // [{words: [...], verseNum: N}]
+        let completedVersesArray = [];
 
         function removeDiacritics(text) {
             return text
@@ -142,18 +139,15 @@
             const inputArea = document.getElementById('inputArea');
             inputArea.innerHTML = '';
 
-            // Get all solved words grouped by verse
             const grouped = {};
             solvedWords.forEach(obj => {
                 if (!grouped[obj.verse]) grouped[obj.verse] = [];
                 grouped[obj.verse].push(obj.word);
             });
 
-            // Only show completed verses (where all words in a verse are solved)
             completedVersesArray = [];
             for (const verseNum in grouped) {
                 const verseNumInt = parseInt(verseNum);
-                // Find the number of words in this verse
                 const totalWords = currentSurahWords.filter(w => w.verse === verseNumInt).length;
                 if (grouped[verseNum].length === totalWords) {
                     completedVersesArray.push({words: grouped[verseNum], verseNum: verseNum});
@@ -183,6 +177,7 @@
 
                 input.addEventListener('input', () => {
                     if (input.value === letter) {
+                        playLetterSound(letter);
                         input.disabled = true;
                         input.style.backgroundColor = '#cfc';
                         fadedContainer.children[index].classList.remove('faded');
@@ -194,7 +189,6 @@
                             solvedWords.push({ word, verse: verseId });
                             currentWordIndex++;
                             setTimeout(() => {
-                                // Only update completedVersesArray after LAST word of the verse
                                 const nextWord = currentSurahWords[currentWordIndex];
                                 if (!nextWord || nextWord.verse !== verseId) {
                                     showCompletedVerses();
@@ -202,12 +196,14 @@
                                 if (currentWordIndex < currentSurahWords.length) {
                                     showCurrentWord();
                                 } else {
+                                    playSound('sounds/correct.mp3');
                                     alert('أحسنت! أنهيت السورة.');
                                     location.reload();
                                 }
                             }, 800);
                         }
                     } else {
+                        playSound('sounds/wrong.mp3');
                         alert('الحرف الصحيح هو: ' + letter);
                         input.value = '';
                     }
@@ -220,5 +216,6 @@
             inputBoxes[0].focus();
         }
     </script>
+
 </body>
 </html>
