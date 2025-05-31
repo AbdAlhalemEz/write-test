@@ -1,0 +1,23 @@
+{
+  "name": "تطبيق سور جزء عم",
+  "short_name": "جزء عم",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f0f8ff",
+  "theme_color": "#ffccff",
+  "description": "تدريب كتابة سور جزء عم للأطفال",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "dir": "rtl",
+  "lang": "ar"
+}
